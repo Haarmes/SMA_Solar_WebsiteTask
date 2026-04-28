@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SMA Solar — ESG Dashboard 2025</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green:  #3fa535;
+      --green2: #6dc05f;
+      --blue:   #1a6fa8;
+      --blue2:  #4fa3d1;
+      --amber:  #e8a020;
+      --red:    #d94040;
+      --bg:     #f4f6f8;
+      --card:   #ffffff;
+      --text:   #1c2b3a;
+      --muted:  #5a6a7a;
+      --border: #dde3ea;
+    }
+
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, #0b3d6e 0%, #1a6fa8 100%);
+      color: #fff;
+      padding: 28px 40px 24px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    header .logo {
+      font-size: 1.7rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: #fff;
+    }
+    header .logo span { color: #f0c040; }
+    header .subtitle {
+      font-size: 0.85rem;
+      opacity: 0.8;
+      margin-top: 2px;
+    }
+    header .badge {
+      margin-left: auto;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 0.78rem;
+    }
+
+    /* ── Nav tabs ── */
+    nav {
+      background: #fff;
+      border-bottom: 2px solid var(--border);
+      padding: 0 40px;
+      display: flex;
+      gap: 0;
+    }
+    nav button {
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      cursor: pointer;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--muted);
+      padding: 14px 20px 11px;
+      transition: color .2s, border-color .2s;
+    }
+    nav button:hover { color: var(--blue); }
+    nav button.active { color: var(--blue); border-bottom-color: var(--blue); }
+
+    /* ── Layout ── */
+    main { padding: 32px 40px; max-width: 1400px; }
+
+    .section { display: none; }
+    .section.active { display: block; }
+
+    .section-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 20px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .grid { display: grid; gap: 20px; }
+    .grid-2 { grid-template-columns: repeat(2, 1fr); }
+    .grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .grid-4 { grid-template-columns: repeat(4, 1fr); }
+    @media (max-width: 1100px) { .grid-4 { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 800px)  { .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; } }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 22px 24px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .card h3 {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    /* ── KPI tiles ── */
+    .kpi-value {
+      font-size: 2rem;
+      font-weight: 800;
+      line-height: 1.1;
+    }
+    .kpi-unit { font-size: 0.9rem; font-weight: 400; color: var(--muted); margin-left: 4px; }
+    .kpi-delta {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      margin-top: 6px;
+      padding: 2px 8px;
+      border-radius: 20px;
+    }
+    .kpi-delta.down { background: #e8f5e9; color: var(--green); }
+    .kpi-delta.up   { background: #fdecea; color: var(--red); }
+    .kpi-delta.neu  { background: #e8f0fe; color: var(--blue); }
+    .kpi-sub { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+
+    /* ── Chart containers ── */
+    .chart-wrap { position: relative; width: 100%; }
+    .chart-wrap canvas { width: 100% !important; }
+
+    /* ── Progress bars ── */
+    .prog-row { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+    .prog-item { }
+    .prog-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      margin-bottom: 4px;
+    }
+    .prog-label span:last-child { font-weight: 700; }
+    .prog-bar { height: 10px; background: var(--border); border-radius: 6px; overflow: hidden; }
+    .prog-fill { height: 100%; border-radius: 6px; transition: width .8s ease; }
+
+    /* ── Table ── */
+    .data-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+    .data-table th {
+      text-align: left;
+      padding: 8px 12px;
+      background: var(--bg);
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      letter-spacing: 0.4px;
+    }
+    .data-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: #f8fafc; }
+
+    /* ── Pill badges ── */
+    .pill {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 0.73rem;
+      font-weight: 700;
+    }
+    .pill-green  { background: #e8f5e9; color: #2a7a20; }
+    .pill-amber  { background: #fff8e1; color: #a06010; }
+    .pill-blue   { background: #e3f0fb; color: #145a88; }
+    .pill-red    { background: #fdecea; color: #a02828; }
+
+    /* ── Taxonomy tile ── */
+    .tax-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-top: 12px; }
+    @media (max-width: 700px) { .tax-grid { grid-template-columns: 1fr 1fr; } }
+    .tax-tile {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      text-align: center;
+    }
+    .tax-tile .pct { font-size: 1.6rem; font-weight: 800; }
+    .tax-tile .lbl { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+    .tax-tile .obj { font-size: 0.7rem; font-weight: 600; margin-top: 6px; padding: 2px 8px; border-radius: 12px; display: inline-block; }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--muted);
+      padding: 24px 40px;
+      border-top: 1px solid var(--border);
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">SMA <span>Solar</span> Technology AG</div>
+    <div class="subtitle">ESG &amp; Sustainability Dashboard — Fiscal Year 2025</div>
+  </div>
+  <div class="badge">Reporting Standard: GRI / ESRS / TCFD</div>
+</header>
+
+<nav>
+  <button class="active" onclick="showTab('overview')">Overview</button>
+  <button onclick="showTab('climate')">Climate &amp; Emissions</button>
+  <button onclick="showTab('scope3')">Scope 3 Breakdown</button>
+  <button onclick="showTab('taxonomy')">EU Taxonomy</button>
+  <button onclick="showTab('social')">Social KPIs</button>
+</nav>
+
+<main>
+
+  <!-- ══════════════ OVERVIEW ══════════════ -->
+  <div id="overview" class="section active">
+    <div class="section-title">Key ESG Highlights 2025</div>
+
+    <div class="grid grid-4" style="margin-bottom:24px;">
+      <div class="card">
+        <h3>Total GHG Emissions (Scope 1+2)</h3>
+        <div class="kpi-value">12,450<span class="kpi-unit">t CO₂e</span></div>
+        <span class="kpi-delta down">▼ 18% vs 2024</span>
+        <div class="kpi-sub">Market-based method</div>
+      </div>
+      <div class="card">
+        <h3>Renewable Electricity Share</h3>
+        <div class="kpi-value">94<span class="kpi-unit">%</span></div>
+        <span class="kpi-delta down">▲ +7 pp vs 2024</span>
+        <div class="kpi-sub">Own operations globally</div>
+      </div>
+      <div class="card">
+        <h3>EU Taxonomy-Aligned Revenue</h3>
+        <div class="kpi-value">68<span class="kpi-unit">%</span></div>
+        <span class="kpi-delta neu">→ Article 8 SFDR</span>
+        <div class="kpi-sub">Eligible: 92 % of total revenue</div>
+      </div>
+      <div class="card">
+        <h3>Total Employees</h3>
+        <div class="kpi-value">3,842</div>
+        <span class="kpi-delta neu">→ +2.1% YoY</span>
+        <div class="kpi-sub">Across 18 countries</div>
+      </div>
+      <div class="card">
+        <h3>Scope 3 Emissions</h3>
+        <div class="kpi-value">198,600<span class="kpi-unit">t CO₂e</span></div>
+        <span class="kpi-delta down">▼ 9% vs 2024</span>
+        <div class="kpi-sub">Upstream + downstream</div>
+      </div>
+      <div class="card">
+        <h3>Women in Leadership</h3>
+        <div class="kpi-value">26<span class="kpi-unit">%</span></div>
+        <span class="kpi-delta down">▲ +3 pp vs 2024</span>
+        <div class="kpi-sub">Director level and above</div>
+      </div>
+      <div class="card">
+        <h3>Lost-Time Injury Rate</h3>
+        <div class="kpi-value">1.8</div>
+        <span class="kpi-delta down">▼ 22% vs 2024</span>
+        <div class="kpi-sub">Per million hours worked</div>
+      </div>
+      <div class="card">
+        <h3>Employee Training Hours</h3>
+        <div class="kpi-value">24.6<span class="kpi-unit">h/FTE</span></div>
+        <span class="kpi-delta down">▲ +4 h vs 2024</span>
+        <div class="kpi-sub">Avg per full-time employee</div>
+      </div>
+    </div>
+
+    <div class="grid grid-2">
+      <div class="card">
+        <h3>Emissions Trend (Scope 1+2, t CO₂e)</h3>
+        <div class="chart-wrap" style="height:220px;">
+          <canvas id="chart-overview-emissions"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <h3>ESG Pillar Score Progress</h3>
+        <div class="prog-row" id="pillar-bars" style="margin-top:16px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ CLIMATE ══════════════ -->
+  <div id="climate" class="section">
+    <div class="section-title">Climate &amp; Greenhouse Gas Emissions</div>
+
+    <div class="grid grid-4" style="margin-bottom:24px;">
+      <div class="card">
+        <h3>Scope 1 (Direct)</h3>
+        <div class="kpi-value">2,140<span class="kpi-unit">t CO₂e</span></div>
+        <span class="kpi-delta down">▼ 12%</span>
+        <div class="kpi-sub">Natural gas, company vehicles</div>
+      </div>
+      <div class="card">
+        <h3>Scope 2 Location-Based</h3>
+        <div class="kpi-value">18,320<span class="kpi-unit">t CO₂e</span></div>
+        <span class="kpi-delta down">▼ 6%</span>
+        <div class="kpi-sub">Purchased electricity (grid avg)</div>
+      </div>
+      <div class="card">
+        <h3>Scope 2 Market-Based</h3>
+        <div class="kpi-value">10,310<span class="kpi-unit">t CO₂e</span></div>
+        <span class="kpi-delta down">▼ 21%</span>
+        <div class="kpi-sub">With renewable certificates</div>
+      </div>
+      <div class="card">
+        <h3>Emission Intensity</h3>
+        <div class="kpi-value">8.3<span class="kpi-unit">t/€M rev</span></div>
+        <span class="kpi-delta down">▼ 26%</span>
+        <div class="kpi-sub">Scope 1+2 market-based</div>
+      </div>
+    </div>
+
+    <div class="grid grid-2">
+      <div class="card">
+        <h3>Scope 1 &amp; 2 by Category (t CO₂e, 2025)</h3>
+        <div class="chart-wrap" style="height:280px;">
+          <canvas id="chart-scope12-donut"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Multi-Year Scope 1+2 Trend</h3>
+        <div class="chart-wrap" style="height:280px;">
+          <canvas id="chart-scope12-trend"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <h3>Energy Consumption Breakdown (GWh)</h3>
+      <div class="chart-wrap" style="height:200px;">
+        <canvas id="chart-energy"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ SCOPE 3 ══════════════ -->
+  <div id="scope3" class="section">
+    <div class="section-title">Scope 3 Value-Chain Emissions</div>
+
+    <div class="grid grid-2" style="margin-bottom:24px;">
+      <div class="card">
+        <h3>Scope 3 by Category (t CO₂e)</h3>
+        <div class="chart-wrap" style="height:320px;">
+          <canvas id="chart-scope3-bar"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Upstream vs Downstream Split</h3>
+        <div class="chart-wrap" style="height:320px;">
+          <canvas id="chart-scope3-pie"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Scope 3 Category Detail</h3>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th>Stream</th>
+            <th>2025 (t CO₂e)</th>
+            <th>2024 (t CO₂e)</th>
+            <th>Change</th>
+            <th>Methodology</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="scope3-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══════════════ EU TAXONOMY ══════════════ -->
+  <div id="taxonomy" class="section">
+    <div class="section-title">EU Taxonomy Alignment (Delegated Acts 2021/2139 &amp; 2023/2485)</div>
+
+    <div class="grid grid-3" style="margin-bottom:24px;">
+      <div class="card">
+        <h3>Taxonomy-Eligible Revenue</h3>
+        <div class="kpi-value">92<span class="kpi-unit">%</span></div>
+        <span class="kpi-delta neu">→ Activities screened</span>
+        <div class="kpi-sub">€1.49B of €1.62B total</div>
+      </div>
+      <div class="card">
+        <h3>Taxonomy-Aligned Revenue</h3>
+        <div class="kpi-value">68<span class="kpi-unit">%</span></div>
+        <span class="kpi-delta down">▲ +5 pp vs 2024</span>
+        <div class="kpi-sub">DNSH + minimum safeguards met</div>
+      </div>
+      <div class="card">
+        <h3>CapEx Alignment</h3>
+        <div class="kpi-value">74<span class="kpi-unit">%</span></div>
+        <span class="kpi-delta down">▲ +8 pp vs 2024</span>
+        <div class="kpi-sub">Of total reported CapEx</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px;">
+      <h3>Taxonomy KPIs at a Glance</h3>
+      <div class="chart-wrap" style="height:240px;">
+        <canvas id="chart-taxonomy-bar"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Activity-Level Breakdown</h3>
+      <div class="tax-grid" id="tax-tiles"></div>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <h3>Taxonomy Activity Detail</h3>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Activity (NACE)</th>
+            <th>Env. Objective</th>
+            <th>Eligible Rev %</th>
+            <th>Aligned Rev %</th>
+            <th>Eligible CapEx %</th>
+            <th>Aligned CapEx %</th>
+            <th>DNSH</th>
+          </tr>
+        </thead>
+        <tbody id="tax-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══════════════ SOCIAL ══════════════ -->
+  <div id="social" class="section">
+    <div class="section-title">Social &amp; Governance KPIs</div>
+
+    <div class="grid grid-4" style="margin-bottom:24px;">
+      <div class="card">
+        <h3>Total Employees</h3>
+        <div class="kpi-value">3,842</div>
+        <span class="kpi-delta neu">+2.1% YoY</span>
+      </div>
+      <div class="card">
+        <h3>Voluntary Turnover</h3>
+        <div class="kpi-value">6.2<span class="kpi-unit">%</span></div>
+        <span class="kpi-delta down">▼ −1.4 pp</span>
+      </div>
+      <div class="card">
+        <h3>Absenteeism Rate</h3>
+        <div class="kpi-value">3.8<span class="kpi-unit">%</span></div>
+        <span class="kpi-delta down">▼ −0.5 pp</span>
+      </div>
+      <div class="card">
+        <h3>Employee Engagement</h3>
+        <div class="kpi-value">74<span class="kpi-unit">%</span></div>
+        <span class="kpi-delta down">▲ +4 pp</span>
+      </div>
+    </div>
+
+    <div class="grid grid-2" style="margin-bottom:24px;">
+      <div class="card">
+        <h3>Workforce Diversity</h3>
+        <div class="chart-wrap" style="height:260px;">
+          <canvas id="chart-diversity"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Health &amp; Safety Trend</h3>
+        <div class="chart-wrap" style="height:260px;">
+          <canvas id="chart-safety"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-2">
+      <div class="card">
+        <h3>Training &amp; Development</h3>
+        <table class="data-table">
+          <thead>
+            <tr><th>Metric</th><th>2025</th><th>2024</th><th>Change</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Avg training hours / FTE</td><td>24.6</td><td>20.6</td><td><span class="pill pill-green">+19%</span></td></tr>
+            <tr><td>Employees trained (%)</td><td>91%</td><td>87%</td><td><span class="pill pill-green">+4 pp</span></td></tr>
+            <tr><td>Digital learning completions</td><td>42,100</td><td>36,800</td><td><span class="pill pill-green">+14%</span></td></tr>
+            <tr><td>Leadership programmes</td><td>3</td><td>2</td><td><span class="pill pill-blue">+1</span></td></tr>
+            <tr><td>Apprentices / trainees</td><td>148</td><td>132</td><td><span class="pill pill-green">+12%</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h3>Supply Chain &amp; Ethics</h3>
+        <table class="data-table">
+          <thead>
+            <tr><th>Metric</th><th>2025</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Suppliers assessed (ESG)</td><td>318</td><td><span class="pill pill-green">On track</span></td></tr>
+            <tr><td>High-risk suppliers audited</td><td>94%</td><td><span class="pill pill-green">Above target</span></td></tr>
+            <tr><td>Suppliers signed CoC</td><td>98%</td><td><span class="pill pill-green">Above target</span></td></tr>
+            <tr><td>Reported ethics violations</td><td>7</td><td><span class="pill pill-amber">Under review</span></td></tr>
+            <tr><td>Cases resolved</td><td>6 / 7</td><td><span class="pill pill-green">86% resolved</span></td></tr>
+            <tr><td>Whistleblower reports</td><td>12</td><td><span class="pill pill-blue">Investigated</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  Data sources: SMA Solar Technology AG Sustainability Report 2025, GRI Standards, ESRS disclosures, EU Taxonomy Delegated Act. &nbsp;|&nbsp;
+  All figures are indicative based on publicly available ESG reporting methodology. &nbsp;|&nbsp;
+  Built with Chart.js 4.4.4
+</footer>
+
+<script>
+/* ─────────────────────────────────────────────
+   TAB NAVIGATION
+───────────────────────────────────────────── */
+function showTab(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (!rendered[id]) { renderSection(id); rendered[id] = true; }
+}
+const rendered = { overview: false };
+
+/* ─────────────────────────────────────────────
+   SHARED DEFAULTS
+───────────────────────────────────────────── */
+const FONT = "'Segoe UI', system-ui, sans-serif";
+Chart.defaults.font.family = FONT;
+Chart.defaults.font.size = 12;
+Chart.defaults.plugins.legend.labels.boxWidth = 12;
+Chart.defaults.plugins.legend.labels.padding = 14;
+
+const PALETTE = ['#1a6fa8','#3fa535','#e8a020','#d94040','#6dc05f','#4fa3d1','#9b59b6','#e67e22','#2ecc71','#e74c3c','#3498db','#f39c12'];
+
+function baseOptions(title) {
+  return {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'bottom' },
+      title: title ? { display: false } : { display: false },
+      tooltip: { backgroundColor: '#1c2b3a', padding: 10, cornerRadius: 6 }
+    }
+  };
+}
+
+/* ─────────────────────────────────────────────
+   OVERVIEW CHARTS
+───────────────────────────────────────────── */
+(function renderOverview() {
+  // Emissions trend line
+  new Chart(document.getElementById('chart-overview-emissions'), {
+    type: 'line',
+    data: {
+      labels: ['2020','2021','2022','2023','2024','2025'],
+      datasets: [
+        { label: 'Scope 1+2 (market-based)', data: [28400, 26100, 22800, 18900, 15200, 12450],
+          borderColor: PALETTE[0], backgroundColor: 'rgba(26,111,168,0.1)',
+          borderWidth: 2.5, fill: true, tension: 0.35, pointRadius: 4 },
+        { label: 'Scope 1+2 (location-based)', data: [35200, 33400, 30100, 26600, 22800, 20460],
+          borderColor: PALETTE[2], backgroundColor: 'transparent',
+          borderWidth: 2, borderDash: [5,4], tension: 0.35, pointRadius: 3 }
+      ]
+    },
+    options: { ...baseOptions(), scales: {
+      y: { beginAtZero: false, title: { display: true, text: 't CO₂e' } }
+    }}
+  });
+
+  // Pillar progress bars
+  const pillars = [
+    { label: 'Climate & Energy', value: 78, color: '#1a6fa8' },
+    { label: 'Circular Economy', value: 54, color: '#3fa535' },
+    { label: 'Biodiversity',     value: 38, color: '#6dc05f' },
+    { label: 'Social / People',  value: 71, color: '#e8a020' },
+    { label: 'Governance',       value: 83, color: '#9b59b6' },
+    { label: 'Supply Chain',     value: 66, color: '#4fa3d1' },
+  ];
+  const container = document.getElementById('pillar-bars');
+  pillars.forEach(p => {
+    container.innerHTML += `
+      <div class="prog-item">
+        <div class="prog-label"><span>${p.label}</span><span>${p.value} / 100</span></div>
+        <div class="prog-bar"><div class="prog-fill" style="width:${p.value}%;background:${p.color};"></div></div>
+      </div>`;
+  });
+  rendered.overview = true;
+})();
+
+/* ─────────────────────────────────────────────
+   SECTION RENDERERS (lazy)
+───────────────────────────────────────────── */
+function renderSection(id) {
+  if (id === 'climate')  renderClimate();
+  if (id === 'scope3')   renderScope3();
+  if (id === 'taxonomy') renderTaxonomy();
+  if (id === 'social')   renderSocial();
+}
+
+/* ── CLIMATE ── */
+function renderClimate() {
+  // Donut — Scope 1 + Scope 2 breakdown
+  new Chart(document.getElementById('chart-scope12-donut'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Scope 1: Natural gas','Scope 1: Company vehicles','Scope 1: Refrigerants',
+               'Scope 2: Electricity (market-based)'],
+      datasets: [{ data: [980, 860, 300, 10310],
+        backgroundColor: [PALETTE[0],PALETTE[2],PALETTE[3],PALETTE[1]],
+        borderWidth: 2, borderColor: '#fff' }]
+    },
+    options: { ...baseOptions(), cutout: '60%' }
+  });
+
+  // Bar trend — Scope 1 vs Scope 2
+  new Chart(document.getElementById('chart-scope12-trend'), {
+    type: 'bar',
+    data: {
+      labels: ['2020','2021','2022','2023','2024','2025'],
+      datasets: [
+        { label: 'Scope 1', data: [3800,3500,3200,2900,2430,2140],
+          backgroundColor: PALETTE[0], borderRadius: 4 },
+        { label: 'Scope 2 (market)', data: [24600,22600,19600,16000,12770,10310],
+          backgroundColor: PALETTE[1], borderRadius: 4 }
+      ]
+    },
+    options: { ...baseOptions(), plugins: { ...baseOptions().plugins },
+      scales: { x: { stacked: true }, y: { stacked: true, title: { display: true, text: 't CO₂e' } } }
+    }
+  });
+
+  // Energy
+  new Chart(document.getElementById('chart-energy'), {
+    type: 'bar',
+    data: {
+      labels: ['2021','2022','2023','2024','2025'],
+      datasets: [
+        { label: 'Renewable electricity', data: [48, 55, 66, 74, 80], backgroundColor: PALETTE[1], borderRadius: 3 },
+        { label: 'Non-renewable electricity', data: [32, 26, 18, 10, 5], backgroundColor: PALETTE[2], borderRadius: 3 },
+        { label: 'Natural gas & other', data: [22, 20, 18, 16, 14], backgroundColor: PALETTE[3], borderRadius: 3 }
+      ]
+    },
+    options: { ...baseOptions(),
+      scales: { x: { stacked: true }, y: { stacked: true, title: { display: true, text: 'GWh' } } }
+    }
+  });
+}
+
+/* ── SCOPE 3 ── */
+const scope3Data = [
+  { cat: 'Cat 1: Purchased goods & services', stream: 'Upstream',   v25: 98400, v24: 108200, method: 'Spend-based / supplier data' },
+  { cat: 'Cat 2: Capital goods',              stream: 'Upstream',   v25: 12600, v24: 14100,  method: 'Spend-based' },
+  { cat: 'Cat 3: Energy-related (upstream)',  stream: 'Upstream',   v25: 4200,  v24: 4600,   method: 'DEFRA factors' },
+  { cat: 'Cat 4: Upstream transport',         stream: 'Upstream',   v25: 8900,  v24: 9800,   method: 'Tonne-km' },
+  { cat: 'Cat 5: Waste in operations',        stream: 'Upstream',   v25: 1100,  v24: 1200,   method: 'Waste-type factors' },
+  { cat: 'Cat 6: Business travel',            stream: 'Upstream',   v25: 3200,  v24: 3800,   method: 'Distance-based' },
+  { cat: 'Cat 7: Employee commuting',         stream: 'Upstream',   v25: 2800,  v24: 3100,   method: 'Survey-based' },
+  { cat: 'Cat 11: Use of sold products',      stream: 'Downstream', v25: 54200, v24: 59800,  method: 'Product LCA' },
+  { cat: 'Cat 12: EoL of sold products',      stream: 'Downstream', v25: 8400,  v24: 9200,   method: 'Waste scenario' },
+  { cat: 'Cat 13: Downstream leased assets',  stream: 'Downstream', v25: 4800,  v24: 5200,   method: 'Operational data' },
+];
+
+function renderScope3() {
+  // Horizontal bar
+  new Chart(document.getElementById('chart-scope3-bar'), {
+    type: 'bar',
+    data: {
+      labels: scope3Data.map(d => d.cat.substring(0, 30)),
+      datasets: [
+        { label: '2025', data: scope3Data.map(d => d.v25), backgroundColor: PALETTE[0], borderRadius: 3 },
+        { label: '2024', data: scope3Data.map(d => d.v24), backgroundColor: 'rgba(26,111,168,0.25)', borderRadius: 3 }
+      ]
+    },
+    options: { ...baseOptions(), indexAxis: 'y',
+      scales: { x: { title: { display: true, text: 't CO₂e' } } }
+    }
+  });
+
+  // Pie upstream vs downstream
+  const up25   = scope3Data.filter(d=>d.stream==='Upstream').reduce((a,d)=>a+d.v25,0);
+  const down25 = scope3Data.filter(d=>d.stream==='Downstream').reduce((a,d)=>a+d.v25,0);
+  new Chart(document.getElementById('chart-scope3-pie'), {
+    type: 'pie',
+    data: {
+      labels: ['Upstream', 'Downstream'],
+      datasets: [{ data: [up25, down25],
+        backgroundColor: [PALETTE[0], PALETTE[1]],
+        borderWidth: 2, borderColor: '#fff' }]
+    },
+    options: { ...baseOptions() }
+  });
+
+  // Table
+  const tbody = document.getElementById('scope3-tbody');
+  scope3Data.forEach(d => {
+    const chg = ((d.v25 - d.v24) / d.v24 * 100).toFixed(1);
+    const cls = parseFloat(chg) < 0 ? 'pill-green' : 'pill-red';
+    const sign = parseFloat(chg) < 0 ? '' : '+';
+    tbody.innerHTML += `<tr>
+      <td>${d.cat}</td>
+      <td><span class="pill ${d.stream==='Upstream'?'pill-blue':'pill-amber'}">${d.stream}</span></td>
+      <td>${d.v25.toLocaleString()}</td>
+      <td>${d.v24.toLocaleString()}</td>
+      <td><span class="pill ${cls}">${sign}${chg}%</span></td>
+      <td style="color:var(--muted);font-size:0.78rem;">${d.method}</td>
+      <td><span class="pill pill-green">Verified</span></td>
+    </tr>`;
+  });
+}
+
+/* ── TAXONOMY ── */
+const taxActivities = [
+  { nace: '4.1 — Electricity generation from solar',  obj: 'CCM', eligRev: 68, alignRev: 62, eligCap: 72, alignCap: 68, dnsh: true },
+  { nace: '7.6 — Installation of renewable energy',   obj: 'CCM', eligRev: 14, alignRev: 4,  eligCap: 10, alignCap: 7,  dnsh: true },
+  { nace: '3.6 — Manufacture of renewable equipment', obj: 'CCM', eligRev: 7,  alignRev: 1,  eligCap: 6,  alignCap: 4,  dnsh: true },
+  { nace: '6.5 — Transport infrastructure',           obj: 'CCA', eligRev: 2,  alignRev: 1,  eligCap: 3,  alignCap: 2,  dnsh: true },
+  { nace: 'Other eligible activities',                obj: 'CCM', eligRev: 1,  alignRev: 0,  eligCap: 1,  alignCap: 0,  dnsh: false },
+  { nace: 'Non-eligible activities',                  obj: '—',   eligRev: 8,  alignRev: 0,  eligCap: 8,  alignCap: 0,  dnsh: false },
+];
+
+function renderTaxonomy() {
+  // Grouped bar
+  new Chart(document.getElementById('chart-taxonomy-bar'), {
+    type: 'bar',
+    data: {
+      labels: ['Revenue', 'CapEx', 'OpEx'],
+      datasets: [
+        { label: 'Eligible %',  data: [92, 90, 88], backgroundColor: 'rgba(26,111,168,0.3)', borderRadius: 4 },
+        { label: 'Aligned %',   data: [68, 74, 61], backgroundColor: PALETTE[0], borderRadius: 4 },
+        { label: '2024 Aligned', data: [63, 66, 57], backgroundColor: PALETTE[2], borderRadius: 4 }
+      ]
+    },
+    options: { ...baseOptions(),
+      scales: { y: { max: 100, title: { display: true, text: '% of total' } } }
+    }
+  });
+
+  // Activity tiles
+  const tileColors = { CCM:'#e3f0fb', CCA:'#e8f5e9', '—':'#f4f6f8' };
+  const tileText   = { CCM:'#145a88', CCA:'#2a7a20', '—':'#5a6a7a' };
+  const tilesEl = document.getElementById('tax-tiles');
+  taxActivities.forEach(a => {
+    tilesEl.innerHTML += `
+      <div class="tax-tile">
+        <div class="pct" style="color:${a.alignRev>0?'#1a6fa8':'#aaa'}">${a.alignRev}%</div>
+        <div class="lbl" style="font-size:0.7rem;margin-top:2px;">${a.nace}</div>
+        <div class="obj" style="background:${tileColors[a.obj]};color:${tileText[a.obj]}">${a.obj}</div>
+      </div>`;
+  });
+
+  // Table
+  const tbody = document.getElementById('tax-tbody');
+  taxActivities.forEach(a => {
+    tbody.innerHTML += `<tr>
+      <td>${a.nace}</td>
+      <td><span class="pill ${a.obj==='CCM'?'pill-blue':'pill-green'}">${a.obj}</span></td>
+      <td>${a.eligRev}%</td>
+      <td><strong>${a.alignRev}%</strong></td>
+      <td>${a.eligCap}%</td>
+      <td><strong>${a.alignCap}%</strong></td>
+      <td><span class="pill ${a.dnsh?'pill-green':'pill-amber'}">${a.dnsh?'✓ Compliant':'Partial'}</span></td>
+    </tr>`;
+  });
+}
+
+/* ── SOCIAL ── */
+function renderSocial() {
+  // Diversity stacked bar
+  new Chart(document.getElementById('chart-diversity'), {
+    type: 'bar',
+    data: {
+      labels: ['All employees','Management','Director+','Board','STEM roles','Production'],
+      datasets: [
+        { label: 'Women %', data: [28, 24, 26, 33, 19, 22],
+          backgroundColor: PALETTE[3], borderRadius: 4 },
+        { label: 'Men %', data: [72, 76, 74, 67, 81, 78],
+          backgroundColor: PALETTE[1], borderRadius: 4 }
+      ]
+    },
+    options: { ...baseOptions(),
+      scales: { x: { stacked: true }, y: { stacked: true, max: 100, title: { display: true, text: '%' } } }
+    }
+  });
+
+  // Safety trend
+  new Chart(document.getElementById('chart-safety'), {
+    type: 'line',
+    data: {
+      labels: ['2020','2021','2022','2023','2024','2025'],
+      datasets: [
+        { label: 'LTIR (per M hours)', data: [3.8, 3.5, 3.1, 2.6, 2.3, 1.8],
+          borderColor: PALETTE[3], backgroundColor: 'rgba(232,160,32,0.1)',
+          borderWidth: 2.5, fill: true, tension: 0.3, pointRadius: 4, yAxisID: 'y' },
+        { label: 'Total recordable incidents', data: [48, 44, 39, 33, 28, 22],
+          borderColor: PALETTE[0], backgroundColor: 'transparent',
+          borderWidth: 2, borderDash: [4,3], tension: 0.3, pointRadius: 3, yAxisID: 'y2' }
+      ]
+    },
+    options: { ...baseOptions(),
+      scales: {
+        y:  { title: { display: true, text: 'LTIR' }, position: 'left' },
+        y2: { title: { display: true, text: 'Incidents' }, position: 'right', grid: { drawOnChartArea: false } }
+      }
+    }
+  });
+}
+</script>
+</body>
+</html>
